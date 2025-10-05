@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { emailService } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,7 +47,38 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // TODO: Send email notification to admin
+    // Send email notification to admin
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail && process.env.BREVO_API_KEY) {
+      try {
+        const emailResult = await emailService.sendConsultantQuoteNotificationToAdmin(
+          {
+            fullName,
+            email,
+            issueDescription,
+            successCriteria,
+            urgency,
+            preferredFormat,
+            fileUrls,
+            agreementAccepted
+          },
+          adminEmail
+        );
+
+        if (!emailResult.success) {
+          console.error('Failed to send admin notification email:', emailResult.error);
+          // Don't fail the request if email fails, just log it
+        } else {
+          console.log('Admin notification email sent successfully:', emailResult.messageId);
+        }
+      } catch (emailError) {
+        console.error('Error sending admin notification email:', emailError);
+        // Don't fail the request if email fails, just log it
+      }
+    } else {
+      console.warn('ADMIN_EMAIL or BREVO_API_KEY not configured, skipping email notification');
+    }
+
     // TODO: Send confirmation email to user
 
     return NextResponse.json({
